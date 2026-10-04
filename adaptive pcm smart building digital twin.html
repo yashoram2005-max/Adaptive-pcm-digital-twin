@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Adaptive PCM Smart-Building Digital Twin V5</title>
+<style>
+*{box-sizing:border-box}
+:root{--bg:#f4f7fb;--card:#fff;--text:#17324b;--muted:#64748b;--line:#d8e1eb;--blue:#2196f3;--pink:#ef6680;--green:#21a366;--orange:#e5a63a}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,Segoe UI,sans-serif}
+.wrap{max-width:1500px;margin:0 auto;padding:18px}.grid{display:grid;grid-template-columns:360px 1fr;gap:16px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;box-shadow:0 2px 8px rgba(23,50,75,.06)}
+.controls{max-height:calc(100vh - 36px);overflow:auto;position:sticky;top:18px}
+h1{font-size:23px;margin:0 0 4px}h2{font-size:15px;margin:0 0 10px}h3{font-size:14px;margin:0 0 5px}
+.small{font-size:11px;color:var(--muted);line-height:1.45}.section{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+label{font-size:11px;color:#52657a;display:block;margin:8px 0 4px}input,select{width:100%;padding:7px 8px;border:1px solid #cbd6e2;border-radius:6px;background:white;color:#17324b;font-size:12px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}button{width:100%;margin-top:12px;padding:10px;border:0;border-radius:7px;background:#1687df;color:#fff;font-weight:700;cursor:pointer}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.kpi{border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff}
+.kpi span{display:block;color:var(--muted);font-size:10px}.kpi b{font-size:18px;display:block;margin-top:5px}.positive{color:#168a5a}.negative{color:#d4475e}
+.notice{margin-top:8px;border-left:3px solid var(--blue);background:#f4f9ff;padding:9px;font-size:11px;color:#42566b}
+.chartgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.chart{height:285px}.chart svg{width:100%;height:100%;display:block}
+.legend{display:flex;gap:14px;font-size:10px;color:var(--muted);margin-top:3px}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.tablewrap{max-height:410px;overflow:auto;border:1px solid var(--line);border-radius:7px}table{width:100%;border-collapse:collapse;font-size:10px}
+th,td{padding:7px 6px;border-bottom:1px solid #edf1f5;text-align:right;white-space:nowrap}th:first-child,td:first-child{text-align:left}th{position:sticky;top:0;background:#f8fafc;color:#53667a}
+.balance{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}.balance div{background:#f8fafc;border:1px solid #e7edf4;padding:9px;border-radius:7px;font-size:11px}
+@media(max-width:1050px){.grid{grid-template-columns:1fr}.controls{position:static;max-height:none}.kpis{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.chartgrid{grid-template-columns:1fr}.balance{grid-template-columns:1fr}.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="grid">
+<aside class="panel controls">
+<h2>1. Case & Weather</h2><div class="small">Representative Indian climate profile for sensitivity testing, not live weather.</div>
+<label>City</label><select id="city"><option>Mumbai</option><option>Delhi</option><option>Bengaluru</option><option>Chennai</option><option>Hyderabad</option></select>
+<div class="row"><div><label>IT load kW</label><input id="it" type="number" value="500"></div><div><label>Cooling fraction</label><input id="coolFrac" type="number" value="0.55" step="0.01"></div></div>
+<div class="row"><div><label>Day IT multiplier</label><input id="dayMult" type="number" value="1.05" step="0.01"></div><div><label>Night IT multiplier</label><input id="nightMult" type="number" value="0.82" step="0.01"></div></div>
+
+<div class="section"><h2>2. Chilled-Water Loop</h2>
+<div class="row"><div><label>CHW supply °C</label><input id="chwS" type="number" value="7"></div><div><label>CHW return °C</label><input id="chwR" type="number" value="12"></div></div>
+<div class="row"><div><label>Water density kg/m³</label><input id="rho" type="number" value="998"></div><div><label>Water Cp kJ/kg-K</label><input id="cpw" type="number" value="4.18"></div></div>
+<div class="row"><div><label>Pump efficiency</label><input id="pumpEff" type="number" value="0.75" step="0.01"></div><div><label>Pressure rise kPa</label><input id="dp" type="number" value="120"></div></div>
+<label>Condenser pump/tower base kW</label><input id="tower" type="number" value="25">
+
+<div class="section"><h2>3. Chiller Thermodynamics</h2>
+<div class="row"><div><label>Evaporator approach K</label><input id="evapApp" type="number" value="3"></div><div><label>Condenser approach K</label><input id="condApp" type="number" value="5"></div></div>
+<div class="row"><div><label>Carnot-to-real efficiency</label><input id="eta" type="number" value="0.48" step="0.01"></div><div><label>Minimum COP</label><input id="minCop" type="number" value="2" step="0.1"></div></div>
+<div class="row"><div><label>Rated chiller capacity kW-th</label><input id="qmax" type="number" value="700"></div><div><label>Part-load factor</label><input id="plf" type="number" value="0.88" step="0.01"></div></div>
+<label>Standby / controls kW</label><input id="standby" type="number" value="3">
+
+<div class="section"><h2>4. PCM Thermal Battery</h2>
+<label>PCM profile</label><select id="pcmProfile"><option value="200">RT 10 HC — 200 kJ/kg</option><option value="165">RT 10 — 165 kJ/kg</option><option value="260">RT 18 HC — 260 kJ/kg</option></select>
+<div class="row"><div><label>PCM mass kg</label><input id="pcmMass" type="number" value="10000"></div><div><label>PCM Cp kJ/kg-K</label><input id="pcmCp" type="number" value="2"></div></div>
+<div class="row"><div><label>Sensible ΔT °C</label><input id="pcmDt" type="number" value="3"></div><div><label>Usable capacity factor</label><input id="usable" type="number" value="0.90" step="0.01"></div></div>
+<div class="row"><div><label>HX effectiveness</label><input id="hx" type="number" value="0.85" step="0.01"></div><div><label>Initial SOC %</label><input id="soc0" type="number" value="25"></div></div>
+<div class="row"><div><label>Charge limit kW-th</label><input id="chargeLimit" type="number" value="500"></div><div><label>Discharge limit kW-th</label><input id="dischargeLimit" type="number" value="500"></div></div>
+
+<div class="section"><h2>5. Predictive Controller</h2>
+<div class="row"><div><label>Charge start hour</label><input id="chargeStart" type="number" value="0"></div><div><label>Charge end hour</label><input id="chargeEnd" type="number" value="6"></div></div>
+<div class="row"><div><label>Forecast error ±%</label><input id="forecastError" type="number" value="8"></div><div><label>Reserve SOC %</label><input id="reserve" type="number" value="15"></div></div>
+<label>Peak shaving threshold kW</label><input id="peakThreshold" type="number" value="100">
+<div class="small" style="margin-top:7px">V5 controller: charging thermal load is explicitly counted in chiller electricity, and charging is constrained so it cannot create an artificial peak above the configured threshold.</div>
+
+<div class="section"><h2>6. Tariff & Economics</h2>
+<div class="row"><div><label>Normal rate ₹/kWh</label><input id="rate" type="number" value="10"></div><div><label>Demand ₹/kW-day</label><input id="demand" type="number" value="250"></div></div>
+<div class="row"><div><label>PCM + HX capex ₹/kWh-th</label><input id="capex" type="number" value="1200"></div><div><label>Annual O&M ₹</label><input id="om" type="number" value="150000"></div></div>
+<label>Simulation horizon</label><select id="horizon"><option value="1">1 day</option><option value="7">7 days</option><option value="365">365 days</option></select>
+<div class="small" style="margin-top:8px">Reference ToD multipliers: 00–06 0.80×, 06–09 1.10×, 09–16 0.80×, 16–20 1.20×, 20–00 1.10×. Actual billing depends on tariff category/licensee.</div>
+<button onclick="runSimulation()">RUN CORRECTED DIGITAL TWIN V7</button>
+</aside>
+
+<main>
+<div class="panel"><h1>Engineering Dashboard</h1><div class="small">Adaptive Thermal Energy Storage-Based Cooling System • V7 energy-balanced predictive model</div>
+<div class="kpis" style="margin-top:12px">
+<div class="kpi"><span>Baseline electricity</span><b id="kBase">—</b></div><div class="kpi"><span>Adaptive electricity</span><b id="kAdapt">—</b></div><div class="kpi"><span>Energy reduction</span><b id="kEnergy">—</b></div><div class="kpi"><span>Peak kW reduction</span><b id="kPeak">—</b></div>
+<div class="kpi"><span>Baseline cost</span><b id="kBaseCost">—</b></div><div class="kpi"><span>Adaptive cost</span><b id="kAdaptCost">—</b></div><div class="kpi"><span>Cost reduction</span><b id="kCost">—</b></div><div class="kpi"><span>Simple payback</span><b id="kPayback">—</b></div>
+</div><div class="notice" id="summary">Run the corrected digital twin V7.</div></div>
+
+<div class="chartgrid">
+<div class="panel"><h3>Representative Day — Electrical Demand</h3><div class="small">Baseline chiller operation vs energy-balanced adaptive dispatch.</div><div class="chart" id="chartPower"></div><div class="legend"><span><i style="background:#2196f3"></i>Baseline kW</span><span><i style="background:#ef6680"></i>Adaptive kW</span></div></div>
+<div class="panel"><h3>PCM Thermal State</h3><div class="small">Stored thermal energy / state of charge.</div><div class="chart" id="chartSoc"></div><div class="legend"><span><i style="background:#2196f3"></i>PCM stored kWh-th</span></div></div>
+<div class="panel"><h3>Weather Profile</h3><div class="small">Representative outdoor temperature driving chiller lift.</div><div class="chart" id="chartTemp"></div><div class="legend"><span><i style="background:#21a366"></i>Outdoor temperature °C</span></div></div>
+<div class="panel"><h3>Hourly Energy Cost</h3><div class="small">Baseline vs adaptive operating cost.</div><div class="chart" id="chartCost"></div><div class="legend"><span><i style="background:#2196f3"></i>Baseline ₹/h</span><span><i style="background:#ef6680"></i>Adaptive ₹/h</span></div></div>
+<div class="panel"><h3>Cooling Load & PCM Contribution</h3><div class="small">PCM discharge reduces mechanical cooling duty; PCM charging is separately counted in electrical input.</div><div class="chart" id="chartCooling"></div><div class="legend"><span><i style="background:#2196f3"></i>Total cooling kW-th</span><span><i style="background:#21a366"></i>PCM discharge kW-th</span></div></div>
+<div class="panel"><h3>Engineering Balance</h3><div class="balance" id="balance"></div></div>
+</div>
+
+<div class="panel" style="margin-top:12px"><h3>Hourly Digital-Twin Trace</h3><div class="small">The displayed 24-hour trace is the first modeled day. Multi-day horizons are used for cumulative economics.</div>
+<div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>Hour</th><th>Ambient °C</th><th>IT kW</th><th>Cooling kW-th</th><th>COP</th><th>Baseline kW</th><th>Adaptive kW</th><th>PCM ΔkWh-th</th><th>SOC %</th><th>Tariff ₹/kWh</th></tr></thead><tbody id="tableBody"></tbody></table></div></div>
+<div class="small" style="margin-top:10px">Model note: software engineering simulation, not a measured plant-performance guarantee. Validate with actual chiller maps, PCM data, HX UA/NTU, pump curves, IT load and applicable tariff before using savings as a project claim.</div>
+</main></div></div>
+
+<script>
+(function(){
+"use strict";
+function el(id){return document.getElementById(id)}
+function n(id,d){var v=parseFloat(el(id).value);return isFinite(v)?v:d}
+function num(v,d){return Number(v).toLocaleString("en-IN",{maximumFractionDigits:d||0})}
+function money(v){return "₹"+Number(v).toLocaleString("en-IN",{maximumFractionDigits:0})}
+var weather={
+Mumbai:[25.2,24.7,24.2,23.8,23.7,24.0,24.5,25.2,26.0,27.0,28.0,29.0,30.0,30.8,31.3,31.6,31.5,31.1,30.4,29.5,28.3,27.2,26.2,25.6],
+Delhi:[17,16.4,16,15.6,15.5,16,17.5,20.5,24.5,28.5,32,35,37,38,38,37,34.5,31,28,25,22.5,20.5,19,18],
+Bengaluru:[20,19.7,19.4,19.2,19.3,19.8,20.5,22,24,26,28,29,29.5,29.7,29.4,28.7,27.5,25.8,24,22.8,21.8,21.2,20.6,20.2],
+Chennai:[26.8,26.5,26.3,26.2,26.4,27,28,29.5,31,32.5,33.5,34.5,35,35.2,35,34.5,33.5,32.5,31.5,30.5,29.5,28.7,28,27.4],
+Hyderabad:[22,21.5,21,20.5,20.3,20.8,22.2,24.5,27,30,32.5,34.5,35.5,36,35.5,34.5,32.5,30,27.5,25.5,24,23,22.5,22]};
+function tariff(h){if(h<6)return .80;if(h<9)return 1.10;if(h<16)return .80;if(h<20)return 1.20;return 1.10}
+function inWindow(h,s,e){return s===e?false:(s<e?(h>=s&&h<e):(h>=s||h<e))}
+function drawLine(id,sets,min,max){
+ var W=900,H=270,L=58,R=18,T=18,B=38,iw=W-L-R,ih=H-T-B,all=[];
+ sets.forEach(s=>all=all.concat(s.data));min=min===undefined?Math.min(...all):min;max=max===undefined?Math.max(...all):max;if(max<=min)max=min+1;
+ var x=i=>L+i/(sets[0].data.length-1)*iw,y=v=>T+(1-(v-min)/(max-min))*ih,s='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">';
+ for(var j=0;j<=5;j++){var yy=T+j*ih/5,vv=max-(max-min)*j/5;s+='<line x1="'+L+'" y1="'+yy+'" x2="'+(W-R)+'" y2="'+yy+'" stroke="#e5eaf0"/><text x="'+(L-8)+'" y="'+(yy+4)+'" text-anchor="end" font-size="11" fill="#718096">'+num(vv,0)+'</text>'}
+ for(var i=0;i<sets[0].data.length;i+=2)s+='<text x="'+x(i)+'" y="'+(H-12)+'" text-anchor="middle" font-size="10" fill="#718096">'+String(i).padStart(2,"0")+':00</text>';
+ sets.forEach(set=>{s+='<polyline fill="none" stroke="'+set.color+'" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" points="'+set.data.map((v,i)=>x(i)+","+y(v)).join(" ")+'"/>'});
+ s+='</svg>';el(id).innerHTML=s;
+}
+function drawBar(id,a,b){
+ var W=900,H=270,L=58,R=18,T=18,B=38,iw=W-L-R,ih=H-T-B,n=a.length,max=Math.max(...a,...b)*1.12,g=iw/n,bw=Math.min(13,g*.3),x=i=>L+i*g+g/2,y=v=>T+ih-v/max*ih,s='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">';
+ for(var j=0;j<=5;j++){var yy=T+j*ih/5,vv=max*(1-j/5);s+='<line x1="'+L+'" y1="'+yy+'" x2="'+(W-R)+'" y2="'+yy+'" stroke="#e5eaf0"/><text x="'+(L-8)+'" y="'+(yy+4)+'" text-anchor="end" font-size="11" fill="#718096">'+num(vv,0)+'</text>'}
+ for(var i=0;i<n;i++){var xx=x(i),h1=ih-(y(a[i])-T),h2=ih-(y(b[i])-T);s+='<rect x="'+(xx-bw-2)+'" y="'+y(a[i])+'" width="'+bw+'" height="'+h1+'" rx="2" fill="#2196f3"/><rect x="'+(xx+2)+'" y="'+y(b[i])+'" width="'+bw+'" height="'+h2+'" rx="2" fill="#ef6680"/>';if(i%2===0)s+='<text x="'+xx+'" y="'+(H-12)+'" text-anchor="middle" font-size="10" fill="#718096">'+String(i).padStart(2,"0")+'</text>'}
+ s+='</svg>';el(id).innerHTML=s;
+}
+
+window.runSimulation=function(){
+ var city=el("city").value,w=weather[city],it=n("it",500),cf=n("coolFrac",.55),day=n("dayMult",1.05),night=n("nightMult",.82);
+ var chwS=n("chwS",7),chwR=n("chwR",12),rho=n("rho",998),cpw=n("cpw",4.18),pumpEff=n("pumpEff",.75),dp=n("dp",120),tower=n("tower",25);
+ var evapApp=n("evapApp",3),condApp=n("condApp",5),eta=n("eta",.48),minCop=n("minCop",2),qmax=n("qmax",700),plf=n("plf",.88),standby=n("standby",3);
+ var latent=n("pcmProfile",200),mass=n("pcmMass",10000),pcmCp=n("pcmCp",2),pcmDt=n("pcmDt",3),usable=n("usable",.9),hx=n("hx",.85);
+ var soc0=n("soc0",25)/100,chargeLimit=n("chargeLimit",500),dischargeLimit=n("dischargeLimit",500),cs=Math.round(n("chargeStart",0)),ce=Math.round(n("chargeEnd",6));
+ var forecastErr=n("forecastError",8)/100,reserve=n("reserve",15)/100,peakThreshold=n("peakThreshold",100),rate=n("rate",10),demand=n("demand",250),capex=n("capex",1200),om=n("om",150000),days=Math.max(1,Math.round(n("horizon",1)));
+ var rawCap=mass*(latent+pcmCp*pcmDt)/3600,cap=rawCap*usable*hx,stored=cap*soc0;
+ var first=[],baseE=0,adaptE=0,baseCost=0,adaptCost=0,basePeak=0,adaptPeak=0,charged=0,discharged=0,maxFlow=0,totalBaseDemandPeak=0,totalAdaptDemandPeak=0;
+
+ // Establish a realistic reference peak from the conventional system for the first 24 h.
+ var ref=[];
+ for(var h=0;h<24;h++){
+   var temp=w[h],mult=(h>=7&&h<22)?day:night,itLoad=it*mult,cooling=Math.max(0,itLoad*cf);
+   var Te=chwS-evapApp+273.15,Tc=temp+condApp+273.15,cop=Math.max(minCop,(Te/Math.max(1,Tc-Te))*eta);
+   var lf=Math.min(1,cooling/Math.max(1,qmax));if(lf<.5)cop=Math.max(minCop,cop*(plf+(1-plf)*(lf/.5)));
+   var flow=cooling/(cpw*Math.max(.5,chwR-chwS)),pump=flow*dp/(rho*Math.max(.1,pumpEff)),base=cooling/Math.max(.1,cop)+pump+tower+standby;
+   ref.push({temp,itLoad,cooling,cop,flow,pump,base});
+ }
+ var conventionalPeak=Math.max(...ref.map(r=>r.base));
+ var chargePowerCap=Math.max(0,peakThreshold);
+
+ // Repeat days; controller sees next 6 hours and preserves reserve.
+ for(var d=0;d<days;d++){
+   for(var h=0;h<24;h++){
+     var r=ref[h], expensivePeak=(h>=16&&h<20), charging=inWindow(h,cs,ce);
+     var forecast=0;
+     for(var k=1;k<=6;k++){var hh=(h+k)%24,m2=(hh>=7&&hh<22)?day:night;forecast+=it*m2*cf*(1+forecastErr)}
+     var charge=0,discharge=0, mech=r.cooling;
+
+     if(charging){
+       // Predictive charging: calculate only the thermal energy needed for
+       // the next peak/tariff window, rather than filling the tank.
+       var futurePeakNeed=0;
+       for(var pk=1;pk<=12;pk++){
+         var ph=(h+pk)%24;
+         var pm=(ph>=7&&ph<22)?day:night;
+         var pTemp=w[ph];
+         var pCooling=it*pm*cf;
+         var pTe=chwS-evapApp+273.15;
+         var pTc=pTemp+condApp+273.15;
+         var pCop=Math.max(minCop,(pTe/Math.max(1,pTc-pTe))*eta);
+         var pFlow=pCooling/(cpw*Math.max(.5,chwR-chwS));
+         var pPump=pFlow*dp/(rho*Math.max(.1,pumpEff));
+         var pBase=pCooling/Math.max(.1,pCop)+pPump+tower+standby;
+         if(pBase>peakThreshold || (ph>=16&&ph<20)){
+           var required=Math.max(0,(pBase-peakThreshold)*pCop);
+           if(ph>=16&&ph<20 && pBase<=peakThreshold){
+             required=Math.min(dischargeLimit,pCooling*0.15);
+           }
+           futurePeakNeed+=required;
+         }
+       }
+       // Add a forecast-error margin and preserve the configured reserve.
+       var targetStored=Math.min(cap,
+         cap*reserve + futurePeakNeed*(1+forecastErr));
+       var requested=Math.min(chargeLimit,Math.max(0,targetStored-stored));
+
+       // Charging itself consumes chiller capacity; never create an artificial peak.
+       var maxExtraThermal=Math.max(0,(chargePowerCap-r.base)*Math.max(.1,r.cop));
+       charge=Math.min(requested,maxExtraThermal);
+
+       // Enforce rated chiller capacity before crediting storage.
+       charge=Math.min(charge,Math.max(0,qmax-r.cooling));
+       stored=Math.min(cap,stored+charge*hx);
+       charged+=charge*hx;
+     } else if(r.base>peakThreshold || expensivePeak){
+       // Predictive dispatch: shave only the electrical power above the threshold,
+       // preserving the remaining PCM energy for later peaks.
+       var available=Math.max(0,stored-cap*reserve);
+       var targetThermal=0;
+       if(r.base>peakThreshold){
+         targetThermal=(r.base-peakThreshold)*Math.max(.1,r.cop);
+       }else{
+         // Limited tariff shifting during 16:00–20:00 while preserving peak reserve.
+         targetThermal=Math.min(dischargeLimit,r.cooling*0.15);
+       }
+       discharge=Math.min(dischargeLimit,Math.min(available/Math.max(.1,hx),Math.min(r.cooling,targetThermal)));
+       stored=Math.max(cap*reserve,stored-discharge*hx);
+       discharged+=discharge;
+     }
+
+     mech=Math.max(0,r.cooling-discharge);
+     // Charging thermal duty is already capacity-constrained above.
+     var chillerThermal=Math.min(qmax,mech+charge);
+     var adaptive=chillerThermal/Math.max(.1,r.cop)+r.pump+tower+standby;
+     var base=r.base,tr=rate*tariff(h);
+     baseE+=base;adaptE+=adaptive;baseCost+=base*tr;adaptCost+=adaptive*tr;basePeak=Math.max(basePeak,base);adaptPeak=Math.max(adaptPeak,adaptive);
+     if(d===0)first.push({h,temp:r.temp,it:r.itLoad,cool:r.cooling,cop:r.cop,base,adapt:adaptive,delta:charge-discharge,soc:cap?stored/cap*100:0,stored,baseCost:base*tr,adaptCost:adaptive*tr,tariff:tr,pcm:discharge,charge});
+   }
+ }
+ // Daily demand charges based on the modeled peak; multi-day uses same representative daily peak.
+ var baseTotal=baseCost+basePeak*demand*days,adaptTotal=adaptCost+adaptPeak*demand*days;
+ var energyRed=(1-adaptE/baseE)*100,peakRed=(1-adaptPeak/basePeak)*100,costRed=(1-adaptTotal/baseTotal)*100;
+ var investment=cap*capex,annualSaving=(baseTotal-adaptTotal)/days*365-om,payback=annualSaving>0?investment/annualSaving:null;
+ el("kBase").textContent=num(baseE,0)+" kWh";el("kAdapt").textContent=num(adaptE,0)+" kWh";
+ el("kEnergy").textContent=num(energyRed,1)+"%";el("kEnergy").className=energyRed>=0?"positive":"negative";
+ el("kPeak").textContent=num(peakRed,1)+"%";el("kPeak").className=peakRed>=0?"positive":"negative";
+ el("kBaseCost").textContent=money(baseTotal);el("kAdaptCost").textContent=money(adaptTotal);el("kCost").textContent=num(costRed,1)+"%";el("kCost").className=costRed>=0?"positive":"negative";el("kPayback").textContent=payback?num(payback,1)+" yr":"N/A";
+ el("summary").innerHTML=city+" profile: representative climate curve. PCM usable capacity: <b>"+num(cap,0)+" kWh-th</b>. Conventional peak: <b>"+num(basePeak,1)+" kW</b>; adaptive peak: <b>"+num(adaptPeak,1)+" kW</b>. Charging electricity is explicitly included and the controller is peak-constrained. Results are not forced to a target saving.";
+ drawLine("chartPower",[{data:first.map(r=>r.base),color:"#2196f3"},{data:first.map(r=>r.adapt),color:"#ef6680"}],0);
+ drawLine("chartSoc",[{data:first.map(r=>r.stored),color:"#2196f3"}],0,Math.max(1,cap));
+ drawLine("chartTemp",[{data:first.map(r=>r.temp),color:"#21a366"}]);
+ drawBar("chartCost",first.map(r=>r.baseCost),first.map(r=>r.adaptCost));
+ drawLine("chartCooling",[{data:first.map(r=>r.cool),color:"#2196f3"},{data:first.map(r=>r.pcm),color:"#21a366"}],0);
+ el("balance").innerHTML=
+ '<div><b>PCM raw capacity</b><br>'+num(rawCap,1)+' kWh-th<br><span class="small">m × (latent + Cp×ΔT) / 3600</span></div>'+
+ '<div><b>Usable capacity</b><br>'+num(cap,1)+' kWh-th<br><span class="small">usable factor × HX effectiveness</span></div>'+
+ '<div><b>PCM charge / discharge</b><br>'+num(charged,0)+' / '+num(discharged,0)+' kWh-th</div>'+
+ '<div><b>Baseline / adaptive peak</b><br>'+num(basePeak,1)+' / '+num(adaptPeak,1)+' kW</div>'+
+ '<div><b>Energy / cost reduction</b><br>'+num(energyRed,1)+'% / '+num(costRed,1)+'%</div>'+
+ '<div><b>Investment / annual saving</b><br>'+money(investment)+' / '+money(Math.max(0,annualSaving))+'</div>';
+ el("tableBody").innerHTML=first.map(r=>'<tr><td>'+String(r.h).padStart(2,"0")+':00</td><td>'+num(r.temp,1)+'</td><td>'+num(r.it,0)+'</td><td>'+num(r.cool,0)+'</td><td>'+num(r.cop,2)+'</td><td>'+num(r.base,1)+'</td><td>'+num(r.adapt,1)+'</td><td>'+num(r.delta,1)+'</td><td>'+num(r.soc,1)+'</td><td>₹'+num(r.tariff,2)+'</td></tr>').join("");
+};
+window.runSimulation();
+})();
+</script>
+</body></html>
